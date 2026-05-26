@@ -1,10 +1,21 @@
 'use client'
 
-import { useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-export default function AuthConfirmPage() {
+function Spinner() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-10 h-10 border-[3px] border-[#5ECEB8] border-t-transparent rounded-full animate-spin" />
+        <p className="text-[#94A3B8]">Signing you in…</p>
+      </div>
+    </div>
+  )
+}
+
+function ConfirmInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -22,14 +33,13 @@ export default function AuthConfirmPage() {
     })
   }, [router, searchParams])
 
+  return <Spinner />
+}
+
+export default function AuthConfirmPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <div
-          className="w-10 h-10 border-[3px] border-[#5ECEB8] border-t-transparent rounded-full animate-spin"
-        />
-        <p className="text-[#94A3B8]">Signing you in…</p>
-      </div>
-    </div>
+    <Suspense fallback={<Spinner />}>
+      <ConfirmInner />
+    </Suspense>
   )
 }
