@@ -29,42 +29,6 @@ flowchart LR
     D --> E([🪑 Friends join & claim])
     E --> F([💸 Everyone pays you])
 ```
-
----
-
-## User flow
-
-```mermaid
-flowchart TD
-    Start([Open PayMe]) --> Home[Landing page]
-    Home --> Create[Click Start a Tab]
-
-    subgraph Wizard [Create wizard — /create]
-        Create --> Upload[Upload receipt photo]
-        Upload --> OCR[Tesseract.js OCR\nin browser]
-        OCR --> Review[Review & edit items\n+ tax / tip]
-        Review --> Payment[Enter name &\npayment handles]
-        Payment --> Submit[POST /api/sessions]
-    end
-
-    Submit --> SessionDB[(Supabase\nsession + items)]
-    SessionDB --> OrgRoom[Organizer lands on\n/session/id]
-    OrgRoom --> Share[Share link with friends]
-
-    Share --> FriendJoin[Friend opens link]
-    FriendJoin --> JoinModal[Enter name → pick color]
-    JoinModal --> FriendRoom[Friend sees live table]
-
-    FriendRoom --> Claim[Tap items to claim]
-    Claim --> RT[[Supabase Realtime\nbroadcasts to all]]
-    RT --> AllSee[Everyone sees updates instantly]
-
-    AllSee --> Summary[Bill summary shows\nexact amount owed]
-    Summary --> Pay[Tap Pay →\nVenmo / CashApp / PayPal deeplink]
-```
-
----
-
 ## System architecture
 
 ```mermaid
