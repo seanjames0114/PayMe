@@ -10,8 +10,10 @@ interface ItemCardProps {
   selections: Selection[]
   participants: Participant[]
   myParticipantId: string | null
+  splitCount: number
   onClaim: (itemId: string) => void
   onRelease: (itemId: string) => void
+  onSetSplit: (itemId: string, count: number) => void
 }
 
 export function ItemCard({
@@ -19,8 +21,10 @@ export function ItemCard({
   selections,
   participants,
   myParticipantId,
+  splitCount,
   onClaim,
   onRelease,
+  onSetSplit,
 }: ItemCardProps) {
   const itemSelections = selections.filter(s => s.item_id === item.id)
   const isMine = itemSelections.some(s => s.participant_id === myParticipantId)
@@ -28,8 +32,9 @@ export function ItemCard({
     .map(s => participants.find(p => p.id === s.participant_id))
     .filter(Boolean) as Participant[]
 
-  const splitCount = claimers.length
-  const pricePerPerson = splitCount > 0 ? item.price / splitCount : item.price
+  const autoSplitCount = Math.max(claimers.length, 1)
+  const effectiveSplit = isMine ? splitCount : autoSplitCount
+  const pricePerPerson = item.price / effectiveSplit
 
   return (
     <motion.div
@@ -51,7 +56,7 @@ export function ItemCard({
           <p className="font-semibold text-[#1E293B] truncate">{item.name}</p>
           <div className="flex items-center gap-2 mt-1">
             <span className="text-sm font-medium text-[#475569]">{formatCurrency(item.price)}</span>
-            {splitCount > 1 && (
+            {effectiveSplit > 1 && (
               <span className="text-xs text-[#94A3B8]">
                 → {formatCurrency(pricePerPerson)} each
               </span>
@@ -100,11 +105,26 @@ export function ItemCard({
         )}
       </div>
 
-      {/* Split indicator */}
-      {claimers.length > 1 && isMine && (
-        <div className="mt-2 flex items-center gap-1.5 text-xs text-[#5ECEB8] font-medium">
-          <Check size={12} />
-          Splitting {formatCurrency(pricePerPerson)} with {claimers.length - 1} other{claimers.length > 2 ? 's' : ''}
+      {/* Split controls — shown when item is claimed */}
+      {isMine && (
+        <div className="mt-3 pt-3 border-t border-[#D1FAF0] flex items-center gap-2">
+          <Check size={12} className="text-[#5ECEB8] flex-shrink-0" />
+          <span className="text-xs text-[#5ECEB8] flex-1">Split between</span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onSetSplit(item.id, Math.max(1, splitCount - 1)) }}
+            className="w-6 h-6 rounded-md bg-[#5ECEB8]/15 text-[#5ECEB8] hover:bg-[#5ECEB8]/30 flex items-center justify-center transition-colors disabled:opacity-30"
+            disabled={splitCount <= 1}
+          >
+            <Minus size={11} />
+          </button>
+          <span className="text-xs font-bold text-[#1E293B] w-5 text-center">{splitCount}</span>
+          <button
+            onClick={(e) => { e.stopPropagation(); onSetSplit(item.id, splitCount + 1) }}
+            className="w-6 h-6 rounded-md bg-[#5ECEB8]/15 text-[#5ECEB8] hover:bg-[#5ECEB8]/30 flex items-center justify-center transition-colors"
+          >
+            <Plus size={11} />
+          </button>
+          <span className="text-xs text-[#64748B]">people</span>
         </div>
       )}
     </motion.div>

@@ -12,6 +12,7 @@ interface BillSummaryProps {
   selections: Selection[]
   participants: Participant[]
   myParticipantId: string | null
+  splitCounts: Record<string, number>
   onPay: () => void
   isOrganizer: boolean
 }
@@ -22,6 +23,7 @@ export function BillSummary({
   selections,
   participants,
   myParticipantId,
+  splitCounts,
   onPay,
   isOrganizer,
 }: BillSummaryProps) {
@@ -33,8 +35,9 @@ export function BillSummary({
     .filter(Boolean) as Item[]
 
   function getItemCost(item: Item): number {
-    const splitCount = selections.filter(s => s.item_id === item.id).length
-    return splitCount > 0 ? item.price / splitCount : item.price
+    const manualSplit = splitCounts[item.id]
+    const autoSplit = Math.max(selections.filter(s => s.item_id === item.id).length, 1)
+    return item.price / (manualSplit ?? autoSplit)
   }
 
   const mySubtotal = myItems.reduce((sum, item) => sum + getItemCost(item), 0)

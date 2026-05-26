@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
-import { Receipt, ArrowRight } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Receipt, ArrowRight, X } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/auth/AuthProvider'
@@ -35,18 +35,21 @@ function timeAgo(iso: string) {
   return `${days}d ago`
 }
 
-function SessionCard({ id, organizer_name, created_at, total, index }: {
+function SessionCard({ id, organizer_name, created_at, total, index, onClose }: {
   id: string
   organizer_name: string
   created_at: string
   total: number
   index: number
+  onClose: () => void
 }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
       transition={{ delay: index * 0.05 }}
+      className="relative group/card"
     >
       <Link
         href={`/session/${id}`}
@@ -56,7 +59,7 @@ function SessionCard({ id, organizer_name, created_at, total, index }: {
           <div className="w-9 h-9 rounded-xl bg-[#F0FDF9] flex items-center justify-center">
             <Receipt size={18} className="text-[#5ECEB8]" />
           </div>
-          <span className="text-xs text-[#94A3B8]">{timeAgo(created_at)}</span>
+          <span className="text-xs text-[#94A3B8] pr-4">{timeAgo(created_at)}</span>
         </div>
 
         <div>
@@ -68,6 +71,14 @@ function SessionCard({ id, organizer_name, created_at, total, index }: {
           Open tab <ArrowRight size={13} />
         </div>
       </Link>
+
+      <button
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose() }}
+        className="absolute top-2 right-2 w-6 h-6 rounded-full bg-[#F1F5F9] text-[#94A3B8] hover:bg-[#FFE4E4] hover:text-[#FF6B6B] flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-all"
+        title="Close tab"
+      >
+        <X size={12} />
+      </button>
     </motion.div>
   )
 }
@@ -105,6 +116,17 @@ export function MySessions() {
       })
   }, [user])
 
+  function handleCloseLocal(id: string) {
+    const updated = localSessions.filter(s => s.id !== id)
+    setLocalSessions(updated)
+    localStorage.setItem('payme_sessions', JSON.stringify(updated))
+  }
+
+  async function handleCloseSupabase(id: string) {
+    setSessions(prev => prev.filter(s => s.id !== id))
+    await supabase.from('sessions').delete().eq('id', id)
+  }
+
   if (authLoading || fetching) return null
 
   if (user && sessions.length > 0) {
@@ -112,16 +134,19 @@ export function MySessions() {
       <section className="py-10 px-4">
         <h2 className="font-bold text-[#1E293B] text-lg mb-4">Your Tables</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {sessions.map((s, i) => (
-            <SessionCard
-              key={s.id}
-              id={s.id}
-              organizer_name={s.organizer_name}
-              created_at={s.created_at}
-              total={(s.subtotal ?? 0) + s.tax + s.tip}
-              index={i}
-            />
-          ))}
+          <AnimatePresence>
+            {sessions.map((s, i) => (
+              <SessionCard
+                key={s.id}
+                id={s.id}
+                organizer_name={s.organizer_name}
+                created_at={s.created_at}
+                total={(s.subtotal ?? 0) + s.tax + s.tip}
+                index={i}
+                onClose={() => handleCloseSupabase(s.id)}
+              />
+            ))}
+          </AnimatePresence>
         </div>
       </section>
     )
@@ -135,16 +160,19 @@ export function MySessions() {
           <p className="text-xs text-[#94A3B8]">Sign in to access these on any device</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {localSessions.map((s, i) => (
-            <SessionCard
-              key={s.id}
-              id={s.id}
-              organizer_name={s.organizer_name}
-              created_at={s.created_at}
-              total={s.subtotal}
-              index={i}
-            />
-          ))}
+          <AnimatePresence>
+            {localSessions.map((s, i) => (
+              <SessionCard
+                key={s.id}
+                id={s.id}
+                organizer_name={s.organizer_name}
+                created_at={s.created_at}
+                total={s.subtotal}
+                index={i}
+                onClose={() => handleCloseLocal(s.id)}
+              />
+            ))}
+          </AnimatePresence>
         </div>
       </section>
     )

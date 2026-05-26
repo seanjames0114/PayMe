@@ -21,6 +21,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
   const [participants, setParticipants] = useState<Participant[]>([])
   const [selections, setSelections] = useState<Selection[]>([])
   const [myParticipantId, setMyParticipantId] = useState<string | null>(null)
+  const [splitCounts, setSplitCounts] = useState<Record<string, number>>({})
   const [showJoin, setShowJoin] = useState(false)
   const [showPayment, setShowPayment] = useState(false)
   const [isJoining, setIsJoining] = useState(false)
@@ -69,6 +70,11 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
       } else {
         setShowJoin(true)
       }
+
+      try {
+        const stored = JSON.parse(localStorage.getItem(`splits_${id}`) || '{}')
+        setSplitCounts(stored)
+      } catch { /* ignore */ }
 
       setLoading(false)
     }
@@ -132,6 +138,20 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
       .delete()
       .eq('participant_id', myParticipantId)
       .eq('item_id', itemId)
+    setSplitCounts(prev => {
+      const next = { ...prev }
+      delete next[itemId]
+      localStorage.setItem(`splits_${id}`, JSON.stringify(next))
+      return next
+    })
+  }
+
+  function handleSetSplit(itemId: string, count: number) {
+    setSplitCounts(prev => {
+      const next = { ...prev, [itemId]: count }
+      localStorage.setItem(`splits_${id}`, JSON.stringify(next))
+      return next
+    })
   }
 
   async function handleShare() {
@@ -157,8 +177,9 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
   const mySelections = selections.filter(s => s.participant_id === myParticipantId)
   const myItems = mySelections.map(s => items.find(i => i.id === s.item_id)).filter(Boolean) as Item[]
   const mySubtotal = myItems.reduce((sum, item) => {
-    const splitCount = selections.filter(s => s.item_id === item.id).length
-    return sum + (splitCount > 0 ? item.price / splitCount : item.price)
+    const manualSplit = splitCounts[item.id]
+    const autoSplit = Math.max(selections.filter(s => s.item_id === item.id).length, 1)
+    return sum + item.price / (manualSplit ?? autoSplit)
   }, 0)
   const totalSubtotal = items.reduce((sum, i) => sum + i.price, 0)
   const myFraction = totalSubtotal > 0 ? mySubtotal / totalSubtotal : 0
@@ -243,6 +264,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
             selections={selections}
             participants={participants}
             myParticipantId={myParticipantId}
+            splitCounts={splitCounts}
             onPay={() => setShowPayment(true)}
             isOrganizer={isOrganizer}
           />
@@ -270,8 +292,10 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
                   selections={selections}
                   participants={participants}
                   myParticipantId={myParticipantId}
+                  splitCount={splitCounts[item.id] ?? Math.max(selections.filter(s => s.item_id === item.id).length, 1)}
                   onClaim={handleClaim}
                   onRelease={handleRelease}
+                  onSetSplit={handleSetSplit}
                 />
               ))}
             </AnimatePresence>
