@@ -1,5 +1,7 @@
 import { Hero } from '@/components/landing/Hero'
 import { HowItWorks } from '@/components/landing/HowItWorks'
+import { MySessions } from '@/components/landing/MySessions'
+import { NavAuth } from '@/components/auth/NavAuth'
 
 export default function HomePage() {
   return (
@@ -11,9 +13,11 @@ export default function HomePage() {
           </div>
           <span className="font-bold text-[#1E293B]">PayMe</span>
         </div>
+        <NavAuth />
       </nav>
 
       <div className="max-w-5xl mx-auto">
+        <MySessions />
         <Hero />
         <HowItWorks />
       </div>

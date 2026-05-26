@@ -2,7 +2,7 @@
 
 > Split restaurant bills without the awkward math.
 
-Snap a receipt, share a link — everyone claims what they ordered and pays you directly in one tap. No signup required for friends. No math required for anyone.
+Snap a receipt, share a link — everyone claims what they ordered and pays you directly in one tap. No signup required for friends. Organizers can sign in to track their tabs across devices.
 
 **Stack:** Next.js 16 · TypeScript · Tailwind CSS · Tesseract.js · Supabase · Vercel
 
@@ -16,6 +16,8 @@ Snap a receipt, share a link — everyone claims what they ordered and pays you 
 | **Real-time table** | Friends join via a shared link and see each other claim items live via Supabase Realtime. |
 | **Fair splits** | Multiple people can split a single item. Tax and tip divide proportionally by what you ordered. |
 | **One-tap payment** | Deep links open Venmo, Cash App, or PayPal pre-filled with the exact amount owed. |
+| **Session history** | Organizers see all their past tabs on the homepage. Signed-in users sync across devices; anonymous users see tabs stored locally. |
+| **Auth (optional)** | Sign in with Google or a magic link email. Friends never need to sign in to join a tab. |
 
 ---
 
@@ -23,12 +25,17 @@ Snap a receipt, share a link — everyone claims what they ordered and pays you 
 
 ```mermaid
 flowchart LR
-    A([📷 Snap receipt]) --> B([🔍 OCR extracts items])
-    B --> C([✏️ Review & edit])
-    C --> D([🔗 Share link])
-    D --> E([🪑 Friends join & claim])
-    E --> F([💸 Everyone pays you])
+    A([🔑 Sign in\noptional]) --> B([📷 Snap receipt])
+    B --> C([🔍 OCR extracts items])
+    C --> D([✏️ Review & edit])
+    D --> E([🏠 Back to homepage\nsee your tab listed])
+    E --> F([🔗 Share link])
+    F --> G([🪑 Friends join & claim])
+    G --> H([💸 Everyone pays you])
 ```
+
+---
+
 ## System architecture
 
 ```mermaid
@@ -37,7 +44,8 @@ graph TB
         direction TB
         UI[React UI\nNext.js App Router]
         OCR[Tesseract.js\nOCR Engine]
-        LS[(localStorage\nparticipant ID)]
+        AUTH[AuthProvider\nsupabase.auth]
+        LS[(localStorage\nparticipant ID +\nanon session history)]
     end
 
     subgraph vercel [Vercel — Edge Network]
@@ -45,20 +53,24 @@ graph TB
         API[API Route\nPOST /api/sessions]
     end
 
-    subgraph supabase [Supabase — Free Tier]
+    subgraph supabase [Supabase]
         DB[(PostgreSQL\nDatabase)]
         RT[Realtime\nWebSocket]
         RLS[Row Level\nSecurity]
+        SAUTH[Supabase Auth\nGoogle OAuth · Magic Link]
     end
 
     OCR -->|parsed items| UI
     UI -->|navigate| SSR
-    UI -->|create session| API
+    UI -->|create session + user_id| API
     API -->|insert rows| DB
     UI <-->|subscribe changes| RT
     RT -->|watches| DB
     RLS -->|enforces policies| DB
     UI -->|store participant id| LS
+    AUTH <-->|JWT session| SAUTH
+    SAUTH -->|identity| DB
+    AUTH -->|user.id| UI
 ```
 
 ---
@@ -67,8 +79,13 @@ graph TB
 
 ```mermaid
 erDiagram
+    auth_users {
+        uuid id PK
+        text email
+    }
     sessions {
         uuid id PK
+        uuid user_id FK
         text organizer_name
         jsonb payment_methods
         numeric subtotal
@@ -97,8 +114,9 @@ erDiagram
         uuid item_id FK
     }
 
-    sessions ||--o{ items        : "has"
-    sessions ||--o{ participants : "has"
+    auth_users ||--o{ sessions     : "owns"
+    sessions   ||--o{ items        : "has"
+    sessions   ||--o{ participants : "has"
     participants ||--o{ selections : "makes"
     items        ||--o{ selections : "claimed in"
 ```
@@ -110,14 +128,19 @@ erDiagram
 ```mermaid
 sequenceDiagram
     actor O as Organizer
+    participant A as Supabase Auth
     participant V as Vercel API
     participant DB as Supabase DB
     participant RT as Supabase Realtime
     actor F as Friend
 
-    O->>V: POST /api/sessions
+    O->>A: Sign in (Google / magic link) — optional
+    A-->>O: JWT session
+
+    O->>V: POST /api/sessions (+ user_id if signed in)
     V->>DB: INSERT session + items
     V-->>O: { sessionId }
+    O->>O: Redirected to homepage\ntab appears in "Your Tables"
     O->>O: Shares /session/id link
 
     F->>DB: INSERT participant (name, color)
@@ -141,20 +164,30 @@ sequenceDiagram
 ```
 payme/
 ├── app/
-│   ├── page.tsx                   # Landing page
+│   ├── page.tsx                   # Homepage — session history + landing
 │   ├── create/
 │   │   └── page.tsx               # 4-step wizard (upload → OCR → items → payment)
 │   ├── session/
 │   │   └── [id]/
 │   │       └── page.tsx           # Live session room with realtime
+│   ├── auth/
+│   │   ├── callback/
+│   │   │   └── route.ts           # Receives OAuth/magic-link redirect, forwards to /auth/confirm
+│   │   └── confirm/
+│   │       └── page.tsx           # Client page — exchanges PKCE code for session, redirects home
 │   └── api/
 │       └── sessions/
 │           └── route.ts           # POST — creates session + items in Supabase
 │
 ├── components/
+│   ├── auth/
+│   │   ├── AuthProvider.tsx       # React context — user state, sign in/out methods
+│   │   ├── AuthModal.tsx          # Sign-in UI (Google OAuth + magic link email)
+│   │   └── NavAuth.tsx            # Nav bar sign in/out button
 │   ├── landing/
 │   │   ├── Hero.tsx
-│   │   └── HowItWorks.tsx
+│   │   ├── HowItWorks.tsx
+│   │   └── MySessions.tsx         # Session history cards (Supabase or localStorage)
 │   ├── create/
 │   │   ├── UploadStep.tsx         # Drag & drop / camera capture
 │   │   ├── OcrProcessor.tsx       # Tesseract.js progress UI
@@ -166,6 +199,7 @@ payme/
 │   │   ├── ItemCard.tsx           # Claimable item with split support
 │   │   ├── BillSummary.tsx        # Per-person total + pay button
 │   │   └── PaymentModal.tsx       # Deep links to payment apps
+│   ├── ClientProviders.tsx        # Client wrapper for layout (AuthProvider)
 │   └── ui/
 │       ├── Button.tsx
 │       ├── Input.tsx
@@ -174,7 +208,7 @@ payme/
 ├── lib/
 │   ├── ocr.ts                     # Tesseract.js wrapper with progress callback
 │   ├── receiptParser.ts           # OCR text → structured items[] with price parsing
-│   ├── supabase.ts                # Supabase browser client
+│   ├── supabase.ts                # Supabase browser client (auth + DB)
 │   └── utils.ts                   # formatCurrency, buildPaymentUrl, participant colors
 │
 ├── types/
@@ -229,13 +263,27 @@ Tesseract downloads the English language model (~10 MB) on first use and caches 
 
 ## Setup
 
-### 1. Supabase
+### 1. Supabase — database
 
 1. Create a free project at [supabase.com](https://supabase.com).
 2. Open **SQL Editor** and run the contents of [`supabase/schema.sql`](./supabase/schema.sql).
 3. Go to **Settings → API** — copy your **Project URL** and **anon key**.
 
-### 2. Environment variables
+### 2. Supabase — auth (optional but recommended)
+
+**Magic link** works out of the box once you set the Site URL.
+
+**Google OAuth:**
+1. Go to **Authentication → Providers → Google** and enable it.
+2. Create OAuth credentials in [Google Cloud Console](https://console.cloud.google.com) and paste the Client ID + Secret into Supabase.
+3. Go to **Authentication → URL Configuration** and set:
+   - **Site URL**: `https://your-app.vercel.app`
+   - **Redirect URLs**: `https://your-app.vercel.app/auth/callback`
+   - For local dev, also add: `http://localhost:3000/auth/callback`
+
+The app uses PKCE flow. After sign-in, Supabase redirects to `/auth/callback`, which forwards to `/auth/confirm` where the browser exchanges the code for a session.
+
+### 3. Environment variables
 
 ```bash
 cp .env.local.example .env.local
@@ -246,7 +294,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-### 3. Run locally
+### 4. Run locally
 
 ```bash
 npm install
@@ -255,7 +303,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-### 4. Deploy to Vercel
+### 5. Deploy to Vercel
 
 1. Import this repo at [vercel.com/new](https://vercel.com/new).
 2. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` under **Environment Variables**.

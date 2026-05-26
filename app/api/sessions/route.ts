@@ -11,11 +11,13 @@ function getSupabase() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { organizer_name, payment_methods, items, tax, tip } = body
+    const { organizer_name, payment_methods, items, tax, tip, user_id } = body
 
     if (!organizer_name || !items?.length) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
+
+    const subtotal = items.reduce((sum: number, item: { price: number }) => sum + (item.price || 0), 0)
 
     const supabase = getSupabase()
     const { data: session, error: sessionError } = await supabase
@@ -23,8 +25,10 @@ export async function POST(req: NextRequest) {
       .insert({
         organizer_name,
         payment_methods,
+        subtotal,
         tax: tax || 0,
         tip: tip || 0,
+        ...(user_id ? { user_id } : {}),
       })
       .select()
       .single()

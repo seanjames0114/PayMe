@@ -7,8 +7,13 @@ create table if not exists sessions (
   subtotal numeric(10,2),
   tax numeric(10,2) not null default 0,
   tip numeric(10,2) not null default 0,
+  user_id uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now()
 );
+
+-- If the table already exists, run this migration:
+-- alter table sessions add column if not exists user_id uuid references auth.users(id) on delete set null;
+-- create index if not exists sessions_user_id_idx on sessions(user_id);
 
 create table if not exists items (
   id uuid primary key default gen_random_uuid(),
@@ -35,6 +40,7 @@ create table if not exists selections (
 );
 
 -- Indexes for fast lookups
+create index if not exists sessions_user_id_idx on sessions(user_id);
 create index if not exists items_session_id_idx on items(session_id);
 create index if not exists participants_session_id_idx on participants(session_id);
 create index if not exists selections_participant_id_idx on selections(participant_id);

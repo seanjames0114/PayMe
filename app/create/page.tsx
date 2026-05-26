@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/components/auth/AuthProvider'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
@@ -21,6 +22,7 @@ interface EditableItem {
 
 export default function CreatePage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [step, setStep] = useState<Step>('upload')
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [items, setItems] = useState<EditableItem[]>([])
@@ -68,6 +70,7 @@ export default function CreatePage() {
           items: items.map(i => ({ name: i.name.trim(), price: parseFloat(i.price) })),
           tax: parseFloat(tax) || 0,
           tip: parseFloat(tip) || 0,
+          user_id: user?.id ?? null,
         }),
       })
 
@@ -78,7 +81,21 @@ export default function CreatePage() {
       // Store organizer flag
       localStorage.setItem(`organizer_${sessionId}`, 'true')
 
-      router.push(`/session/${sessionId}`)
+      // Save to localStorage only when not signed in (signed-in users use Supabase)
+      if (!user) {
+        const subtotal = items.reduce((sum, i) => sum + (parseFloat(i.price) || 0), 0)
+        const stored = JSON.parse(localStorage.getItem('payme_sessions') || '[]')
+        stored.unshift({
+          id: sessionId,
+          organizer_name: organizerName,
+          created_at: new Date().toISOString(),
+          item_count: items.length,
+          subtotal,
+        })
+        localStorage.setItem('payme_sessions', JSON.stringify(stored.slice(0, 20)))
+      }
+
+      router.push(`/`)
     } catch {
       setError('Something went wrong. Please try again.')
       setIsSubmitting(false)

@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback, use } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Share2, Check, Users } from 'lucide-react'
+import Link from 'next/link'
+import { Share2, Check, Users, ArrowLeft } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getParticipantColor, formatCurrency } from '@/lib/utils'
 import { JoinModal } from '@/components/session/JoinModal'
@@ -189,9 +190,14 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
     <div className="min-h-screen flex flex-col">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-[#F1F5F9] bg-white/80 backdrop-blur-sm sticky top-0 z-40">
-        <div>
-          <p className="text-xs text-[#94A3B8] font-medium">Tab by</p>
-          <h1 className="font-bold text-[#1E293B] leading-tight">{session.organizer_name}</h1>
+        <div className="flex items-center gap-3">
+          <Link href="/" className="text-[#94A3B8] hover:text-[#1E293B] transition-colors">
+            <ArrowLeft size={18} />
+          </Link>
+          <div>
+            <p className="text-xs text-[#94A3B8] font-medium">Tab by</p>
+            <h1 className="font-bold text-[#1E293B] leading-tight">{session.organizer_name}</h1>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
