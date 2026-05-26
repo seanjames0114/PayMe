@@ -15,6 +15,7 @@ export default function HomePage() {
         </div>
         <NavAuth />
       </nav>
+      
 
       <div className="max-w-5xl mx-auto">
         <MySessions />
