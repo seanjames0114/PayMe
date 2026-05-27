@@ -25,13 +25,64 @@ Snap a receipt, share a link — everyone claims what they ordered and pays you 
 
 ```mermaid
 flowchart LR
-    A([🔑 Sign in\noptional]) --> B([📷 Snap receipt])
-    B --> C([🔍 OCR extracts items])
-    C --> D([✏️ Review & edit])
-    D --> E([🏠 Back to homepage\nsee your tab listed])
-    E --> F([🔗 Share link])
-    F --> G([🪑 Friends join & claim])
-    G --> H([💸 Everyone pays you])
+    A([Sign in\noptional]) --> B([Snap receipt])
+    B --> C([OCR extracts items])
+    C --> D([Review and edit])
+    D --> E([Homepage\ntab listed])
+    E --> F([Share link])
+    F --> G([Friends join\nand claim])
+    G --> H([Everyone pays you])
+```
+
+---
+
+## Google OAuth flow
+
+```mermaid
+sequenceDiagram
+    actor U as User
+    participant App as PayMe\n(Browser)
+    participant CB as /auth/callback\n(Vercel)
+    participant Conf as /auth/confirm\n(Browser)
+    participant SA as Supabase Auth
+    participant G as Google
+
+    U->>App: Click "Continue with Google"
+    App->>SA: signInWithOAuth({ provider: 'google' })\ngenerates PKCE code_verifier
+    SA->>G: Redirect to Google consent screen
+    G-->>U: Show consent UI
+    U->>G: Approve
+    G->>CB: Redirect with ?code=AUTH_CODE
+    CB->>Conf: Redirect with ?code=AUTH_CODE\n(server route passes code to client)
+    Conf->>SA: exchangeCodeForSession(code)\nuses stored code_verifier
+    SA-->>Conf: JWT session
+    Conf->>App: Redirect home\nsession stored in browser
+    App->>App: AuthProvider detects session\nuser state updates everywhere
+```
+
+PKCE ensures the auth code can only be exchanged by the same browser that initiated the login — `/auth/callback` is a server route that cannot hold the verifier, so it immediately hands off to the client-side `/auth/confirm` page.
+
+---
+
+## Bill calculation
+
+```mermaid
+flowchart TD
+    A[Items claimed by me] --> B[My subtotal\nsum of my item shares]
+    
+    subgraph Split ["Per item: price ÷ split count"]
+        S1[Manual split\nset with +/- buttons] -->|takes priority| SD[effective split count]
+        S2[Auto split\nnumber of claimers] -->|fallback| SD
+    end
+
+    SD --> B
+    B --> C[My fraction\nmy subtotal ÷ total subtotal]
+    C --> D[My tax share\ntax × my fraction]
+    C --> E[My tip share\ntip × my fraction]
+    B --> F[My total\nsubtotal + tax share + tip share]
+    D --> F
+    E --> F
+    F --> G[Shown in Bill Summary\nand pre-filled in payment deeplink]
 ```
 
 ---
