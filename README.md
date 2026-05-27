@@ -36,46 +36,6 @@ flowchart LR
 
 ---
 
-## User flow
-
-```mermaid
-flowchart TD
-    Start([Open PayMe]) --> Home[Homepage]
-
-    Home -->|signed in| History[Your Tables\nrecent tabs visible]
-    Home -->|not signed in| AnonHistory[Recent tabs\nfrom localStorage]
-    Home --> Create[Click Start a Tab]
-
-    subgraph Wizard ["/create — 4-step wizard"]
-        Create --> Upload[Step 1: Upload receipt\ndrag and drop or camera]
-        Upload --> OCR[Step 2: Tesseract.js OCR\nruns in browser]
-        OCR -->|success| Review[Step 3: Review items\nedit names and prices]
-        OCR -->|fail| ManualEntry[Step 3: Enter items\nmanually]
-        ManualEntry --> Review
-        Review --> PaySetup[Step 4: Your name\npayment handles]
-        PaySetup --> Submit[POST /api/sessions]
-    end
-
-    Submit --> Redirect[Redirect to /session/id]
-    Redirect --> OrgRoom[Session room\nas organizer]
-    OrgRoom --> Share[Share link]
-
-    Share --> FriendURL[Friend opens /session/id]
-    FriendURL --> JoinModal[Enter name\ncolor assigned]
-    JoinModal --> FriendRoom[Session room\nas participant]
-
-    FriendRoom --> Claim[Tap items to claim\nor split with others]
-    Claim --> RT[[Supabase Realtime\npushes to all tabs]]
-    RT --> AllUpdate[All participants\nsee live updates]
-
-    AllUpdate --> Summary[Bill summary\nexact amount owed]
-    Summary -->|organizer| NoPayment[No payment needed\nyou collect]
-    Summary -->|participant| PayButton[Tap Pay]
-    PayButton --> DeepLink[Venmo / Cash App / PayPal\nopens pre-filled]
-```
-
----
-
 ## Google OAuth flow
 
 ```mermaid
