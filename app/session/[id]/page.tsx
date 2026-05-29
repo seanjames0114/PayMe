@@ -28,6 +28,7 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
   const [copied, setCopied] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [isUserOrganizer, setIsUserOrganizer] = useState(false)
 
   // Load session data
   useEffect(() => {
@@ -60,14 +61,12 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
 
       // Check stored participant
       const storedId = localStorage.getItem(`participant_${id}`)
-      const isOrganizer = localStorage.getItem(`organizer_${id}`) === 'true'
+      const isOrganizerUser = localStorage.getItem(`organizer_${id}`) === 'true'
 
       if (storedId && (participantsData ?? []).some((p: Participant) => p.id === storedId)) {
         setMyParticipantId(storedId)
-      } else if (isOrganizer) {
-        // Organizer needs to join as a participant too
-        setShowJoin(true)
       } else {
+        setIsUserOrganizer(isOrganizerUser)
         setShowJoin(true)
       }
 
@@ -242,6 +241,8 @@ export default function SessionPage({ params }: { params: Promise<{ id: string }
           sessionOrganizerName={session.organizer_name}
           onJoin={handleJoin}
           isLoading={isJoining}
+          isOrganizer={isUserOrganizer}
+          sessionUrl={typeof window !== 'undefined' ? `${window.location.origin}/session/${id}` : ''}
         />
       )}
 
