@@ -95,7 +95,7 @@ export default function CreatePage() {
         localStorage.setItem('payme_sessions', JSON.stringify(stored.slice(0, 20)))
       }
 
-      router.push(`/`)
+      router.push(`/session/${sessionId}`)
     } catch {
       setError('Something went wrong. Please try again.')
       setIsSubmitting(false)

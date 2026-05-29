@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Receipt, ArrowRight, X } from 'lucide-react'
+import { Receipt, ArrowRight, X, Trash2 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/components/auth/AuthProvider'
@@ -35,6 +35,8 @@ function timeAgo(iso: string) {
   return `${days}d ago`
 }
 
+const DELETE_WIDTH = 88
+
 function SessionCard({ id, organizer_name, created_at, total, index, onClose }: {
   id: string
   organizer_name: string
@@ -43,42 +45,73 @@ function SessionCard({ id, organizer_name, created_at, total, index, onClose }: 
   index: number
   onClose: () => void
 }) {
+  const [isArmed, setIsArmed] = useState(false)
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{ delay: index * 0.05 }}
-      className="relative group/card"
+      className="relative overflow-hidden rounded-2xl border border-[#F1F5F9] shadow-sm"
     >
-      <Link
-        href={`/session/${id}`}
-        className="flex flex-col gap-3 p-4 bg-white rounded-2xl border border-[#F1F5F9] shadow-sm hover:shadow-md hover:border-[#5ECEB8]/40 transition-all group"
-      >
-        <div className="flex items-start justify-between">
-          <div className="w-9 h-9 rounded-xl bg-[#F0FDF9] flex items-center justify-center">
-            <Receipt size={18} className="text-[#5ECEB8]" />
-          </div>
-          <span className="text-xs text-[#94A3B8] pr-4">{timeAgo(created_at)}</span>
-        </div>
-
-        <div>
-          <p className="font-semibold text-[#1E293B] truncate">{organizer_name}&apos;s Tab</p>
-          <p className="text-sm text-[#64748B] mt-0.5">{formatCurrency(total)}</p>
-        </div>
-
-        <div className="flex items-center gap-1 text-xs font-semibold text-[#5ECEB8] group-hover:gap-2 transition-all">
-          Open tab <ArrowRight size={13} />
-        </div>
-      </Link>
-
+      {/* Delete confirmation — revealed when card slides left */}
       <button
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClose() }}
-        className="absolute top-2 right-2 w-6 h-6 rounded-full bg-[#F1F5F9] text-[#94A3B8] hover:bg-[#FFE4E4] hover:text-[#FF6B6B] flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-all"
-        title="Close tab"
+        onClick={onClose}
+        className="absolute right-0 top-0 bottom-0 flex flex-col items-center justify-center gap-1 bg-[#FF4444] active:bg-[#cc3333] transition-colors"
+        style={{ width: DELETE_WIDTH }}
+        aria-label="Confirm delete"
       >
-        <X size={12} />
+        <Trash2 size={18} className="text-white" />
+        <span className="text-xs font-bold text-white">Delete</span>
       </button>
+
+      {/* Card — slides left to reveal delete zone; also swipeable */}
+      <motion.div
+        drag="x"
+        dragConstraints={{ left: -DELETE_WIDTH, right: 0 }}
+        dragElastic={0.05}
+        dragMomentum={false}
+        onDragEnd={(_, info) => {
+          setIsArmed(info.offset.x < -(DELETE_WIDTH / 2))
+        }}
+        animate={{ x: isArmed ? -DELETE_WIDTH : 0 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+        className="relative bg-white rounded-2xl"
+        // Prevent the card from navigating while actively dragging
+        onPointerMove={(e) => { if (Math.abs((e as unknown as { movementX: number }).movementX) > 4) e.preventDefault() }}
+      >
+        <Link
+          href={`/session/${id}`}
+          className="flex flex-col gap-3 p-4 group"
+          onClick={(e) => { if (isArmed) { e.preventDefault(); setIsArmed(false) } }}
+        >
+          <div className="flex items-start justify-between">
+            <div className="w-9 h-9 rounded-xl bg-[#F0FDF9] flex items-center justify-center">
+              <Receipt size={18} className="text-[#5ECEB8]" />
+            </div>
+            <span className="text-xs text-[#94A3B8] pr-8">{timeAgo(created_at)}</span>
+          </div>
+
+          <div>
+            <p className="font-semibold text-[#1E293B] truncate">{organizer_name}&apos;s Tab</p>
+            <p className="text-sm text-[#64748B] mt-0.5">{formatCurrency(total)}</p>
+          </div>
+
+          <div className="flex items-center gap-1 text-xs font-semibold text-[#5ECEB8] group-hover:gap-2 transition-all">
+            Open tab <ArrowRight size={13} />
+          </div>
+        </Link>
+
+        {/* X button — always visible solid red circle, arms/disarms the delete zone */}
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsArmed(prev => !prev) }}
+          className="absolute top-2 right-2 w-8 h-8 rounded-full bg-[#FF4444] text-white flex items-center justify-center transition-transform active:scale-90"
+          aria-label={isArmed ? 'Cancel' : 'Delete tab'}
+        >
+          <X size={15} strokeWidth={2.5} />
+        </button>
+      </motion.div>
     </motion.div>
   )
 }

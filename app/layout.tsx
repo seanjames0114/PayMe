@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
 import { ClientProviders } from "@/components/ClientProviders";
+import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,6 +23,16 @@ export default function RootLayout({
     <html lang="en" className={`${geistSans.variable} h-full`}>
       <body className="min-h-full flex flex-col bg-[#FFFBF7]">
         <ClientProviders>{children}</ClientProviders>
+        <Analytics />
+        <footer className="mt-auto py-4 text-center text-xs text-[#94A3B8]">
+          Have feedback?{' '}
+          <a
+            href="mailto:seanpersonalprojects@gmail.com"
+            className="underline underline-offset-2 hover:text-[#64748B] transition-colors"
+          >
+            Send it our way
+          </a>
+        </footer>
       </body>
     </html>
   );
